@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>stocksViewer · 智能美股驾驶舱</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}" />
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js" defer></script>
+    <script type="module" src="{{ url_for('static', filename='js/home.js') }}"></script>
+  </head>
+  <body class="theme-light">
+    <div class="shell">
+      <header class="topbar">
+        <div class="brand">
+          <span class="brand__logo">SV</span>
+          <div class="brand__copy">
+            <p class="brand__title">stocksViewer</p>
+            <p class="brand__desc">实时行情 · 指标洞察 · 基本面一站式掌控</p>
+          </div>
+        </div>
+        <nav class="topbar__actions">
+          <a href="{{ url_for('views.settings') }}" class="btn btn-ghost">系统配置</a>
+          <button id="toggle-theme" class="btn btn-ghost">切换主题</button>
+          <button id="ai-insights" class="btn btn-pill" disabled>AI 洞察（暂未开放）</button>
+        </nav>
+      </header>
+
+      <main class="main">
+        <section class="hero-card">
+          <div>
+            <h1>用数据和洞察，扫清投资盲区</h1>
+            <p>实时行情、历史走势与技术指标集中呈现，为进阶决策和未来 AI 功能铺路。</p>
+          </div>
+          <ul class="hero-metrics">
+            <li>
+              <span class="label">数据源</span>
+              <span class="value" id="hero-provider-label">{{ provider_label }}</span>
+            </li>
+            <li>
+              <span class="label">缓存策略</span>
+              <span class="value">历史保留 {{ config.cache.history_ttl_days }} 天</span>
+            </li>
+            <li>
+              <span class="label">AI 伙伴</span>
+              <span class="value">DeepSeek · Qwen</span>
+            </li>
+          </ul>
+        </section>
+
+        <section class="summary-grid">
+          <article class="card" id="provider-card">
+            <header class="card__header">
+              <div>
+                <h3>数据源</h3>
+                <p>支持 Alpha Vantage 与 Finnhub 之间一键切换。</p>
+              </div>
+            </header>
+            <div class="card__body">
+              <div class="provider-toggle">
+                <label>
+                  <input type="radio" name="provider-toggle" value="alphavantage" {% if config.data.provider == "alphavantage" %}checked{% endif %} />
+                  <span>Alpha Vantage</span>
+                </label>
+                <label>
+                  <input type="radio" name="provider-toggle" value="finnhub" {% if config.data.provider == "finnhub" %}checked{% endif %} />
+                  <span>Finnhub</span>
+                </label>
+              </div>
+              <p class="provider-note">当前使用：<strong id="provider-label">{{ provider_label }}</strong></p>
+            </div>
+          </article>
+
+          <article class="card" id="company-card">
+            <header class="card__header">
+              <div>
+                <h2>公司基本面</h2>
+                <p>行业、市值、市盈率与企业简介一网打尽</p>
+              </div>
+              <span class="tag">Profile</span>
+            </header>
+            <div id="company-content" class="card__body">
+              <p class="placeholder">公司概览将展示在此。</p>
+            </div>
+          </article>
+        </section>
+
+        <section class="card chart-suite">
+          <header class="chart-suite__top">
+            <div class="chart-suite__intro">
+              <h3>价格与指标走势</h3>
+              <p>选择时间范围快速掌握行情节奏，支持多数据源的自由切换。</p>
+            </div>
+            <div class="chart-suite__controls">
+              <div class="query-bar">
+                <div class="search">
+                  <span class="search__icon"></span>
+                  <input id="symbol-input" type="text" placeholder="输入美股代码（如 AAPL）" />
+                </div>
+                <button id="search-btn" class="btn btn-primary">查询</button>
+              </div>
+              <div class="chart-suite__filters">
+                <div class="chip-group range-buttons">
+                  <button class="chip active" data-range="1D">1日</button>
+                  <button class="chip" data-range="1W">1周</button>
+                  <button class="chip" data-range="1M">1月</button>
+                  <button class="chip" data-range="3M">3月</button>
+                  <button class="chip" data-range="1Y">1年</button>
+                  <button class="chip" data-range="MAX">全部</button>
+                </div>
+              </div>
+            </div>
+          </header>
+          <div id="chart-container" class="chart-grid">
+            <div id="price-chart" class="chart-box"></div>
+            <div id="volume-chart" class="chart-box"></div>
+            <div id="indicator-chart" class="chart-box"></div>
+          </div>
+        </section>
+
+        <section class="panel-grid">
+          <div class="card control-card">
+            <header class="card__header">
+              <div>
+                <h3>技术指标配置</h3>
+                <p>勾选指标并调整参数，实时写入图表。</p>
+              </div>
+            </header>
+            <form id="indicator-form" class="indicator-form">
+              <div class="indicator-row">
+                <label class="checkbox">
+                  <input type="checkbox" name="sma" checked />
+                  <span>移动平均（SMA）</span>
+                </label>
+                <div class="input-stack">
+                  <span>周期</span>
+                  <input type="number" name="sma_period" min="2" max="200" value="20" />
+                </div>
+              </div>
+              <div class="indicator-row">
+                <label class="checkbox">
+                  <input type="checkbox" name="ema" />
+                  <span>指数平均（EMA）</span>
+                </label>
+                <div class="input-stack">
+                  <span>周期</span>
+                  <input type="number" name="ema_period" min="2" max="200" value="12" />
+                </div>
+              </div>
+              <div class="indicator-row">
+                <label class="checkbox">
+                  <input type="checkbox" name="rsi" />
+                  <span>相对强弱（RSI）</span>
+                </label>
+                <div class="input-stack">
+                  <span>周期</span>
+                  <input type="number" name="rsi_period" min="2" max="100" value="14" />
+                </div>
+              </div>
+              <div class="indicator-row indicator-row--macd">
+                <label class="checkbox">
+                  <input type="checkbox" name="macd" />
+                  <span>指标差值（MACD）</span>
+                </label>
+                <div class="macd-inputs">
+                  <div class="input-stack">
+                    <span>快速线</span>
+                    <input type="number" name="macd_fast" min="2" max="50" value="12" />
+                  </div>
+                  <div class="input-stack">
+                    <span>慢速线</span>
+                    <input type="number" name="macd_slow" min="2" max="50" value="26" />
+                  </div>
+                  <div class="input-stack">
+                    <span>信号线</span>
+                    <input type="number" name="macd_signal" min="2" max="50" value="9" />
+                  </div>
+                </div>
+              </div>
+              <button type="submit" class="btn btn-primary full">应用指标组合</button>
+            </form>
+          </div>
+
+          <div class="card status-card" id="status-panel">
+            <header class="card__header">
+              <div>
+                <h3>系统状态</h3>
+                <p>查看 API 请求来源、缓存命中与错误提示。</p>
+              </div>
+            </header>
+            <div id="status-content" class="card__body">
+              <p class="placeholder">暂无状态更新。</p>
+            </div>
+            <button id="refresh-data" class="btn btn-secondary full">手动刷新</button>
+          </div>
+        </section>
+
+        <section class="card upcoming-card">
+          <div>
+            <h3>资讯与 AI 分析</h3>
+            <p>即将上线：新闻摘要、AI 问答、策略提示，欢迎提出你的期待。</p>
+          </div>
+          <button class="btn btn-pill" disabled>敬请期待</button>
+        </section>
+      </main>
+
+      <footer class="footer">
+        <span>stocksViewer © 2025</span>
+        <span>用数据，把握每一个决策瞬间</span>
+      </footer>
+    </div>
+
+    <div id="toast-container"></div>
+  </body>
+</html>
+

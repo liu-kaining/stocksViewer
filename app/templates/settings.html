@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>stocksViewer · 系统配置中心</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}" />
+    <script type="module" src="{{ url_for('static', filename='js/settings.js') }}"></script>
+  </head>
+  <body class="settings-page">
+    <div class="shell">
+      <header class="topbar">
+        <div class="brand">
+          <span class="brand__logo">SV</span>
+          <div class="brand__copy">
+            <p class="brand__title">stocksViewer</p>
+            <p class="brand__desc">配置数据源 · 定制你的工作台</p>
+          </div>
+        </div>
+        <div class="topbar__search"></div>
+        <nav class="topbar__actions">
+          <a href="{{ url_for('views.home') }}" class="btn btn-ghost">返回看板</a>
+          <button id="save-settings" class="btn btn-primary">保存设置</button>
+          <button id="reset-settings" class="btn btn-ghost">恢复页面</button>
+        </nav>
+      </header>
+
+      <main class="main">
+        <section class="card">
+          <header class="card__header">
+            <div>
+              <h3>工作空间概览</h3>
+              <p>管理 API Key、缓存策略与 AI 服务，为后续智能功能打好基础。</p>
+            </div>
+            <span class="tag">配置中心</span>
+          </header>
+          <div class="card__body">
+            <label>
+              当前数据源
+              <select id="data-provider">
+                <option value="alphavantage" {% if config.data.provider == "alphavantage" %}selected{% endif %}>Alpha Vantage</option>
+                <option value="finnhub" {% if config.data.provider == "finnhub" %}selected{% endif %}>Finnhub</option>
+              </select>
+            </label>
+            <p>· Alpha Vantage 负责实时与历史行情查询</p>
+            <p>· SQLite 缓存减少频繁请求，避免触发限流</p>
+            <p>· DeepSeek &amp; Qwen 将提供 AI 洞察与策略建议</p>
+          </div>
+        </section>
+
+        <section class="card">
+          <header class="card__header">
+            <div>
+              <h3>Alpha Vantage 数据源</h3>
+              <p>填写官方 API Key 并设定默认查询范围。</p>
+            </div>
+          </header>
+          <label class="input-secret">
+            API Key（必填）
+            <div class="secret-wrapper">
+              <input type="password" id="alphavantage-api-key" value="{{ config.alphavantage.api_key }}" />
+              <button type="button" class="secret-toggle" data-target="alphavantage-api-key" aria-label="切换可见性"></button>
+            </div>
+          </label>
+          <label>
+            默认时间范围
+            <select id="alphavantage-default-range">
+              {% for option in ["1D","1W","1M","3M","1Y","MAX"] %}
+                <option value="{{ option }}" {% if config.alphavantage.default_range == option %}selected{% endif %}>
+                  {% if option == "1D" %}1日{% elif option == "1W" %}1周{% elif option == "1M" %}1月{% elif option == "3M" %}3月{% elif option == "1Y" %}1年{% else %}全部{% endif %}
+                </option>
+              {% endfor %}
+            </select>
+          </label>
+          <label>
+            默认粒度
+            <select id="alphavantage-default-interval">
+              {% for option in ["intraday_5min","daily","weekly","monthly"] %}
+                <option value="{{ option }}" {% if config.alphavantage.default_interval == option %}selected{% endif %}>
+                  {% if option == "intraday_5min" %}分钟级（5 分钟）{% elif option == "daily" %}日线{% elif option == "weekly" %}周线{% else %}月线{% endif %}
+                </option>
+              {% endfor %}
+            </select>
+          </label>
+          <label>
+            自动刷新间隔（秒）
+            <input type="number" id="alphavantage-auto-refresh" min="10" value="{{ config.alphavantage.auto_refresh_sec }}" />
+          </label>
+          <button class="btn btn-secondary test-btn" data-provider="alphavantage">测试 Alpha Vantage</button>
+        </section>
+
+        <section class="card">
+          <header class="card__header">
+            <div>
+              <h3>缓存策略</h3>
+              <p>合理的缓存可以减少 API 调用与等待时间。</p>
+            </div>
+          </header>
+          <label>
+            历史数据保留天数
+            <input type="number" id="cache-history-ttl" min="1" value="{{ config.cache.history_ttl_days }}" />
+          </label>
+          <label>
+            行情缓存时长（秒）
+            <input type="number" id="cache-quote-ttl" min="5" value="{{ config.cache.quote_ttl_sec }}" />
+          </label>
+          <label>
+            指标缓存时长（秒）
+            <input type="number" id="cache-indicator-ttl" min="30" value="{{ config.cache.indicator_ttl_sec }}" />
+          </label>
+          <button id="clear-history" class="btn btn-secondary">清空历史缓存</button>
+        </section>
+
+        <section class="card">
+          <header class="card__header">
+            <div>
+              <h3>Finnhub 数据源</h3>
+              <p>Finnhub 提供高频行情与丰富指标功能，可作为 Alpha Vantage 的替代方案。</p>
+            </div>
+          </header>
+          <label class="input-secret">
+            API Key（必填）
+            <div class="secret-wrapper">
+              <input type="password" id="finnhub-api-key" value="{{ config.finnhub.api_key }}" />
+              <button type="button" class="secret-toggle" data-target="finnhub-api-key" aria-label="切换可见性"></button>
+            </div>
+          </label>
+          <button class="btn btn-secondary test-btn" data-provider="finnhub">测试 Finnhub</button>
+        </section>
+
+        <section class="card">
+          <header class="card__header">
+            <div>
+              <h3>AI 服务配置</h3>
+              <p>提前配置好密钥与端点，等候 AI 模块上线即可启用。</p>
+            </div>
+          </header>
+          <div class="ai-provider">
+            <h3>DeepSeek</h3>
+            <label>
+              <input type="checkbox" id="deepseek-enabled" {% if config.ai.deepseek.enabled %}checked{% endif %} />
+              启用 DeepSeek
+            </label>
+            <label class="input-secret">
+              API Key
+              <div class="secret-wrapper">
+                <input type="password" id="deepseek-api-key" value="{{ config.ai.deepseek.api_key }}" />
+                <button type="button" class="secret-toggle" data-target="deepseek-api-key" aria-label="切换可见性"></button>
+              </div>
+            </label>
+            <label>
+              Endpoint
+              <input type="text" id="deepseek-endpoint" value="{{ config.ai.deepseek.endpoint }}" />
+            </label>
+            <label>
+              模型名称
+              <input type="text" id="deepseek-model" value="{{ config.ai.deepseek.model }}" />
+            </label>
+            <button class="btn btn-secondary test-btn" data-provider="deepseek">测试 DeepSeek</button>
+          </div>
+
+          <div class="ai-provider">
+            <h3>Qwen</h3>
+            <label>
+              <input type="checkbox" id="qwen-enabled" {% if config.ai.qwen.enabled %}checked{% endif %} />
+              启用 Qwen
+            </label>
+            <label class="input-secret">
+              API Key
+              <div class="secret-wrapper">
+                <input type="password" id="qwen-api-key" value="{{ config.ai.qwen.api_key }}" />
+                <button type="button" class="secret-toggle" data-target="qwen-api-key" aria-label="切换可见性"></button>
+              </div>
+            </label>
+            <label>
+              Endpoint
+              <input type="text" id="qwen-endpoint" value="{{ config.ai.qwen.endpoint }}" />
+            </label>
+            <label>
+              模型名称
+              <input type="text" id="qwen-model" value="{{ config.ai.qwen.model }}" />
+            </label>
+            <button class="btn btn-secondary test-btn" data-provider="qwen">测试 Qwen</button>
+          </div>
+
+          <label>
+            AI 洞察提示词模板
+            <textarea id="ai-insight-prompt" rows="4">{{ config.ai.insight_prompt }}</textarea>
+          </label>
+        </section>
+
+        <section class="card">
+          <header class="card__header">
+            <div>
+              <h3>界面偏好</h3>
+              <p>自定义默认主题与 AI 面板默认状态。</p>
+            </div>
+          </header>
+          <label>
+            主题风格
+            <select id="ui-theme">
+              <option value="light" {% if config.ui.theme == "light" %}selected{% endif %}>浅色</option>
+              <option value="dark" {% if config.ui.theme == "dark" %}selected{% endif %}>深色</option>
+            </select>
+          </label>
+          <label>
+            默认展开 AI 面板
+            <input type="checkbox" id="ui-show-ai" {% if config.ui.show_ai_panel %}checked{% endif %} />
+          </label>
+        </section>
+      </main>
+
+      <footer class="footer">
+        <span>stocksViewer © 2025</span>
+        <span>配置成功后刷新看板以加载最新设置</span>
+      </footer>
+    </div>
+
+    <div id="toast-container"></div>
+  </body>
+</html>
+
